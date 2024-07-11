@@ -10,7 +10,7 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Game {
-        let mut current_round = 0;
+        let current_round = 0;
         let mut total_rounds = 10;
         let mut random_four_digits = random::<u32>() % 9000 + 1000;
 
@@ -48,12 +48,12 @@ impl Game {
                 if well_placed == 4 {
                     println!("Congratz! You did it!");
                     word_guessed = true;
-                    return;
+                } else {
+                    let misplaced = misplaced_pieces(&buf, self.random_four_digits);
+                    println!("Well placed pieces: {:?}\n", well_placed);
+                    println!("Misplaced pieces: {:?}\n", misplaced);
+                    self.current_round += 1;
                 }
-                let misplaced = misplaced_pieces(&buf, self.random_four_digits);
-                println!("Well placed pieces: {:?}\n", well_placed);
-                println!("Misplaced pieces: {:?}\n", misplaced);
-                self.current_round += 1;
             }
         }
     }
