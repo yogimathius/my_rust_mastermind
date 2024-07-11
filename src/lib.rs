@@ -1,1 +1,1 @@
-mod my_rust_mastermind;
+pub mod my_rust_mastermind;

@@ -1,4 +1,63 @@
+use rand::random;
+use std::env;
 use std::io;
+
+pub struct Game {
+    pub current_round: u32,
+    pub total_rounds: u32,
+    pub random_four_digits: u32,
+}
+
+impl Game {
+    pub fn new() -> Game {
+        let mut current_round = 0;
+        let mut total_rounds = 10;
+        let mut random_four_digits = random::<u32>() % 9000 + 1000;
+
+        let args: Vec<String> = env::args().collect();
+        if !args.is_empty() {
+            (total_rounds, random_four_digits) = parse_args(args, random_four_digits);
+        }
+        Game {
+            current_round,
+            total_rounds,
+            random_four_digits,
+        }
+    }
+    pub fn set_random_four_digits(&mut self, random_four_digits: u32) {
+        self.random_four_digits = random_four_digits;
+    }
+    pub fn play(&mut self) {
+        println!("Will you find the secret code?\n");
+        println!("Please enter a valid guess\n");
+        let mut word_guessed = false;
+        while !word_guessed && self.current_round < self.total_rounds {
+            println!("---");
+            println!("Round {}\n", self.current_round);
+
+            let buf = get_from_user();
+            if buf.is_empty() {
+                println!("exit");
+                return;
+            }
+
+            if buf.len() != 4 || buf.chars().any(|c| !c.is_digit(10)) {
+                println!("Wrong input!\n");
+            } else {
+                let well_placed = well_placed_pieces(&buf, self.random_four_digits);
+                if well_placed == 4 {
+                    println!("Congratz! You did it!");
+                    word_guessed = true;
+                    return;
+                }
+                let misplaced = misplaced_pieces(&buf, self.random_four_digits);
+                println!("Well placed pieces: {:?}\n", well_placed);
+                println!("Misplaced pieces: {:?}\n", misplaced);
+                self.current_round += 1;
+            }
+        }
+    }
+}
 
 pub fn get_from_user() -> String {
     let mut input = String::new();
@@ -8,7 +67,6 @@ pub fn get_from_user() -> String {
     }
     input.trim().to_string()
 }
-
 pub fn well_placed_pieces(buffer: &str, random_digits: u32) -> u32 {
     let mut well_placed = 0;
     let formatted_str = format!("{:04}", random_digits);
