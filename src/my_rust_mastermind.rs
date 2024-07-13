@@ -10,23 +10,16 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Game {
-        let current_round = 0;
-        let mut total_rounds = 10;
-        let mut random_four_digits = random::<u32>() % 9000 + 1000;
+        let mut game = Game {
+            current_round: 0,
+            total_rounds: 10,
+            random_four_digits: random::<u32>() % 9000 + 1000,
+        };
+        game.parse_args();
 
-        let args: Vec<String> = env::args().collect();
-        if !args.is_empty() {
-            (total_rounds, random_four_digits) = parse_args(args, random_four_digits);
-        }
-        Game {
-            current_round,
-            total_rounds,
-            random_four_digits,
-        }
+        game
     }
-    pub fn set_random_four_digits(&mut self, random_four_digits: u32) {
-        self.random_four_digits = random_four_digits;
-    }
+
     pub fn play(&mut self) {
         println!("Will you find the secret code?\n");
         println!("Please enter a valid guess\n");
@@ -41,68 +34,82 @@ impl Game {
                 return;
             }
 
-            if buf.len() != 4 || buf.chars().any(|c| !c.is_digit(10)) {
-                println!("Wrong input!\n");
-            } else {
-                let well_placed = well_placed_pieces(&buf, self.random_four_digits);
-                if well_placed == 4 {
-                    println!("Congratz! You did it!");
-                    word_guessed = true;
-                } else {
-                    let misplaced = misplaced_pieces(&buf, self.random_four_digits);
-                    println!("Well placed pieces: {:?}\n", well_placed);
-                    println!("Misplaced pieces: {:?}\n", misplaced);
-                    self.current_round += 1;
+            match buf.len() {
+                4 if buf.chars().all(|c| c.is_digit(10)) => {
+                    let well_placed =
+                        check_pieces(&buf, self.random_four_digits, well_placed_condition);
+                    if well_placed == 4 {
+                        println!("Congratz! You did it!");
+                        word_guessed = true;
+                    } else {
+                        let misplaced =
+                            check_pieces(&buf, self.random_four_digits, misplaced_condition);
+                        println!("Well placed pieces: {:?}\n", well_placed);
+                        println!("Misplaced pieces: {:?}\n", misplaced);
+                        self.current_round += 1;
+                    }
                 }
+                _ => {
+                    println!("Wrong input!\n");
+                }
+            }
+        }
+    }
+
+    fn parse_args(&mut self) {
+        let args: Vec<String> = env::args().collect();
+        let mut args_iter = args.iter().peekable();
+        while let Some(arg) = args_iter.next() {
+            match arg.as_str() {
+                "-c" => {
+                    if let Some(val) = args_iter.next() {
+                        self.random_four_digits =
+                            val.parse::<u32>().unwrap_or(self.random_four_digits);
+                    }
+                }
+                "-t" => {
+                    if let Some(val) = args_iter.next() {
+                        self.total_rounds = val.parse::<u32>().unwrap_or(self.total_rounds);
+                    }
+                }
+                _ => {}
             }
         }
     }
 }
 
-pub fn get_from_user() -> String {
+fn get_from_user() -> String {
     let mut input = String::new();
     match io::stdin().read_line(&mut input) {
-        Ok(_goes_into_input_above) => {}
-        Err(_no_updates_is_fine) => {}
-    }
-    input.trim().to_string()
-}
-pub fn well_placed_pieces(buffer: &str, random_digits: u32) -> u32 {
-    let mut well_placed = 0;
-    let formatted_str = format!("{:04}", random_digits);
-    let formatted_chars: Vec<char> = formatted_str.chars().collect();
-    buffer.chars().enumerate().for_each(|(i, c)| {
-        if c == formatted_chars[i] {
-            well_placed += 1;
+        Ok(_goes_into_input_above) => {
+            return input.trim().to_string();
         }
-    });
-    return well_placed;
+        Err(err) => {
+            println!("error: {}", err);
+            return "".to_string();
+        }
+    }
 }
 
-pub fn misplaced_pieces(buffer: &str, random_digits: u32) -> u32 {
-    let mut misplaced = 0;
-    let formatted_str = format!("{:04}", random_digits);
-    let formatted_chars: Vec<char> = formatted_str.chars().collect();
-    buffer.chars().enumerate().for_each(|(i, c)| {
-        if c != formatted_chars[i] && formatted_chars.contains(&c) {
-            misplaced += 1;
-        }
-    });
-    return misplaced;
+pub fn well_placed_condition(c: char, formatted_char: &Vec<char>, i: usize) -> bool {
+    c == formatted_char[i]
 }
 
-pub fn parse_args(args: Vec<String>, random_four_digits: u32) -> (u32, u32) {
-    let mut random_digits = random_four_digits;
-    let mut total_rounds = 10;
-    let mut i = 0;
-    for arg in args.clone() {
-        if arg == "-c" {
-            random_digits = args[i + 1].parse::<u32>().unwrap();
-        }
-        if arg == "-t" {
-            total_rounds = args[i + 1].parse::<u32>().unwrap();
-        }
-        i += 1;
-    }
-    return (total_rounds, random_digits);
+pub fn misplaced_condition(c: char, formatted_char: &Vec<char>, i: usize) -> bool {
+    formatted_char.contains(&c)
+        && c != formatted_char[i]
+        && formatted_char.iter().filter(|&x| *x == c).count() == 1
+}
+
+pub fn check_pieces<F>(buffer: &str, random_digits: u32, condition: F) -> u32
+where
+    F: Fn(char, &Vec<char>, usize) -> bool,
+{
+    let formatted_str = format!("{:04}", random_digits);
+    let formatted_chars: Vec<char> = formatted_str.chars().collect();
+    buffer
+        .chars()
+        .enumerate()
+        .filter(|&(i, c)| condition(c, &formatted_chars, i))
+        .count() as u32
 }
